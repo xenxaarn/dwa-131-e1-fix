@@ -10,16 +10,16 @@ Pick the block for your distro:
 
 ```bash
 sudo apt update
-sudo apt install git linux-headers-generic build-essential dkms
+sudo apt install git linux-headers-$(uname -r) build-essential dkms
 ```
 
 ### Fedora / RHEL / Rocky / AlmaLinux
 
 ```bash
-sudo dnf install git kernel-devel gcc make dkms
+sudo dnf install git kernel-devel-$(uname -r) gcc make dkms
 ```
 
-> If `kernel-devel` fails, use: `sudo dnf install kernel-devel-$(uname -r)`
+> If that exact version isn't found, run `sudo dnf upgrade`, reboot, and try again.
 
 ### Arch / Manjaro / EndeavourOS
 
@@ -27,6 +27,8 @@ sudo dnf install git kernel-devel gcc make dkms
 sudo pacman -Syu
 sudo pacman -S git base-devel dkms linux-headers
 ```
+
+> If the upgrade installed a new kernel, reboot before continuing. Non-default kernels need their own headers (e.g. `linux-lts-headers`).
 
 ### openSUSE
 
@@ -52,7 +54,7 @@ cd rtl8192eu-linux-driver
 Stop the distro from using the buggy built-in `rtl8xxxu` kernel module (remove the wrong blacklist if it was created before):
 
 ```bash
-rm -f /etc/modprobe.d/rtlxxxu.conf
+sudo rm -f /etc/modprobe.d/rtlxxxu.conf
 echo "blacklist rtl8xxxu" | sudo tee /etc/modprobe.d/rtl8xxxu.conf
 ```
 
@@ -64,6 +66,22 @@ This ensures the driver builds automatically whenever the system updates the ker
 sudo dkms add .
 sudo dkms install rtl8192eu/1.0
 ```
+
+### Secure Boot (only if enabled)
+
+```bash
+mokutil --sb-state
+```
+
+If it says `SecureBoot enabled`, the kernel rejects unsigned modules (`Key was rejected by service`). DKMS signs the module with its own key, which you must enroll once:
+
+```bash
+ls /var/lib/dkms/mok.pub || sudo dkms generate_mok
+sudo mokutil --import /var/lib/dkms/mok.pub
+sudo reboot
+```
+
+At the blue MOK Manager screen choose *Enroll MOK → Continue → Yes*, enter the password you set, and reboot. If `/var/lib/dkms/mok.pub` isn't your key location, check `mok_certificate` in `/etc/dkms/framework.conf`. Or disable Secure Boot in firmware.
 
 ## Step 5: Load the Driver for the Current Kernel
 
@@ -80,7 +98,7 @@ sudo modprobe 8192eu
 Prevent idling drops and force the driver to initialize correctly on boot:
 
 ```bash
-echo -e "8192eu\n\nloop" | sudo tee /etc/modules
+echo "8192eu" | sudo tee /etc/modules-load.d/8192eu.conf
 echo "options 8192eu rtw_power_mgnt=0 rtw_enusbss=0" | sudo tee /etc/modprobe.d/8192eu.conf
 ```
 
@@ -127,7 +145,7 @@ ip link show | grep -i wl
 ## Step 8: Reboot Your System
 
 ```bash
-sudo systemctl reboot -i
+sudo systemctl reboot
 ```
 
-Once rebooted, your D-Link adapter will be fully operational, and you won't have to worry about system updates breaking it anymore!
+Once rebooted, your D-Link adapter will be fully operational, and DKMS will rebuild the driver on kernel updates (as long as the matching kernel headers are installed).

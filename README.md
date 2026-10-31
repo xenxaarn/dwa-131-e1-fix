@@ -98,8 +98,8 @@ sudo modprobe 8192eu
 Prevent idling drops and force the driver to initialize correctly on boot:
 
 ```bash
-echo "8192eu" | sudo tee /etc/modules-load.d/8192eu.conf
-echo "options 8192eu rtw_power_mgnt=0 rtw_enusbss=0" | sudo tee /etc/modprobe.d/8192eu.conf
+echo -e "8192eu\n" | sudo tee /etc/modules-load.d/8192eu.conf
+echo 'omit_dracutmodules+=" rtl8xxxu "' | sudo tee /etc/dracut.conf.d/blacklist-rtl8xxxu.conf
 ```
 
 Then rebuild the initramfs, pick the block for your distro:
